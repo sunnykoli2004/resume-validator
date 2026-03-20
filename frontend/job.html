@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Details - Job Hunter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <nav>
+    <div class="logo">🚀 Job Hunter</div>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="job.html">Jobs</a>
+      <a href="admin.html">Admin</a>
+    </div>
+  </nav>
+
+  <main class="job-details-page">
+    <section class="job-header-card">
+      <div class="company-logo-large" id="jobDetailLogo">G</div>
+      <div class="job-header-info">
+        <h1 id="jobDetailTitle">Frontend Developer</h1>
+        <div class="job-header-meta">
+          <span>By Admin</span>
+          <span>•</span>
+          <span id="jobDetailDate">15 March 2026</span>
+          <span>•</span>
+          <span id="jobDetailCompany">Google</span>
+          <span>•</span>
+          <span id="jobDetailLocation">India</span>
+        </div>
+        <p class="job-header-summary" id="jobDetailSummary">
+          Join a fast-growing team to build beautiful, responsive, and scalable user interfaces for modern web products.
+        </p>
+      </div>
+    </section>
+
+    <section class="job-content-card">
+      <h2>Full Job Description</h2>
+      <p id="jobDetailDescription">
+        We are looking for a skilled developer who is passionate about creating high-quality digital experiences.
+      </p>
+
+      <div class="details-grid">
+        <div class="detail-box">
+          <h3>Company Name</h3>
+          <p id="jobDetailCompanyBox">Google</p>
+        </div>
+        <div class="detail-box">
+          <h3>Location</h3>
+          <p id="jobDetailLocationBox">India</p>
+        </div>
+        <div class="detail-box">
+          <h3>Salary</h3>
+          <p id="jobDetailSalary">Not specified</p>
+        </div>
+        <div class="detail-box">
+          <h3>Job Type</h3>
+          <p id="jobDetailType">Full Time</p>
+        </div>
+      </div>
+
+      <h2>Required Skills</h2>
+      <div class="job-tags skills-large" id="jobDetailTags">
+        <span>Loading...</span>
+      </div>
+
+      <div class="resume-section">
+        <label for="resumeUpload" class="upload-btn">Upload Resume</label>
+        <input type="file" id="resumeUpload" accept=".pdf,.doc,.docx" onchange="handleResumeUpload()" />
+        <button class="apply-btn" onclick="analyzeResume()">Analyze Resume</button>
+      </div>
+
+      <p id="uploadStatus" class="upload-status"></p>
+
+      <!-- MATCH RESULTS APPEAR HERE -->
+      <div id="matchResults" style="display:none;"></div>
+
+      <div class="social-share">
+        <h3>Share This Job</h3>
+        <div class="social-icons">
+          <button onclick="shareJob('facebook')">f</button>
+          <button onclick="shareJob('twitter')">x</button>
+          <button onclick="shareJob('linkedin')">in</button>
+          <button onclick="shareJob('whatsapp')">wa</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="related-posts">
+      <h2>Previous / Related Posts</h2>
+      <div class="related-grid">
+        <a href="job.html" class="related-card">
+          <h3>UI/UX Designer</h3>
+          <p>Microsoft • Canada</p>
+        </a>
+        <a href="job.html" class="related-card">
+          <h3>Backend Engineer</h3>
+          <p>Amazon • USA</p>
+        </a>
+        <a href="job.html" class="related-card">
+          <h3>Data Analyst</h3>
+          <p>Infosys • Australia</p>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+  <script src="api.js"></script>
+
+  <script>
+    // Sync extra detail boxes from api.js loaded data
+    document.addEventListener("DOMContentLoaded", () => {
+      const job = JSON.parse(localStorage.getItem("selectedJob"));
+      if (!job) return;
+
+      const companyBox = document.getElementById("jobDetailCompanyBox");
+      if (companyBox) companyBox.textContent = job.company || "N/A";
+
+      const locationBox = document.getElementById("jobDetailLocationBox");
+      if (locationBox) locationBox.textContent = job.location || "N/A";
+
+      const tagsEl = document.getElementById("jobDetailTags");
+      if (tagsEl) {
+        if (job.skills) {
+          tagsEl.innerHTML = job.skills.split(",").map(s => `<span>${s.trim()}</span>`).join("");
+        } else {
+          tagsEl.innerHTML = "<span>Not specified</span>";
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

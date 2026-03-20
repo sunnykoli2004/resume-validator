@@ -5,6 +5,7 @@ from datetime import date
 def fetch_jobs(
     job_title: str,
     location: str,
+    country: str | None,
     companies: list[str] | None,
     sites: list[str],
     limit: int,
@@ -23,6 +24,7 @@ def fetch_jobs(
             search_term=search_term,
             location=location,
             results_wanted=limit,
+            country_indeed=country.strip().title() if country else location.strip().title(),
         )
 
         if len(df) == 0:

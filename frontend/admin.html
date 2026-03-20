@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel - Job Hunter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <nav>
+    <div class="logo">🚀 Job Hunter</div>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="job.html">Jobs</a>
+      <a href="admin.html">Admin</a>
+    </div>
+  </nav>
+
+  <main class="admin-page">
+    <section class="admin-card">
+      <h1>Admin Panel</h1>
+      <p>Add new job details to the portal.</p>
+
+      <form id="jobForm" onsubmit="submitJob(event)">
+        <div class="form-grid">
+          <input type="text" id="jobTitle" placeholder="Job Title" required />
+          <input type="text" id="companyName" placeholder="Company Name" required />
+          <input type="text" id="jobLocation" placeholder="Location" required />
+          <input type="text" id="jobSalary" placeholder="Salary" required />
+          <input type="text" id="jobSkills" placeholder="Skills (comma separated)" required />
+        </div>
+        <textarea id="jobDescription" rows="6" placeholder="Job Description" required></textarea>
+        <button type="submit" class="apply-btn">Add Job</button>
+      </form>
+
+      <p id="adminMessage" class="upload-status"></p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

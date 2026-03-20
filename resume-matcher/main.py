@@ -1,98 +1,137 @@
-from fastapi import FastAPI, UploadFile, File, Form
+import os
+import sys
+
+from fastapi import FastAPI, Query, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
+from datetime import date
 import pdfplumber
-import io
-import pandas as pd
-from jobspy import scrape_jobs
+
+# 1. ADD THE PATH FIX HERE (At the top of the file)
+scraper_path = r"D:\new intern\jobspy-test"
+if scraper_path not in sys.path:
+    sys.path.append(scraper_path)
+
+# 2. NOW the imports will work without the ModuleNotFoundError
+from scraper import fetch_jobs
+from save_jobs import save_jobs_to_db
 from matcher import compare_resume_to_jobs
 
-app = FastAPI(title="Resume Matcher API", version="1.0")
+SUPPORTED_SITES = [
+    "indeed",
+    "linkedin",
+    "zip_recruiter",
+    "glassdoor",
+    "google",
+]
 
+app = FastAPI(title="JobSpy API", version="1.0")
+app = FastAPI()
+
+# ADD THIS BLOCK HERE
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    text = ""
-    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-    return text.strip()
+# --- CORS SETUP (Crucial for frontend connection) ---
+# This allows your frontend (running on a different port or file) to talk to this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.post("/match")
-async def match_resume(
-    resume: UploadFile = File(...),
-    job_role: str = Form(...),
-    location: str = Form(...),
+# ==========================================
+# PHASE 1: SEARCH AND SCRAPE JOBS
+# ==========================================
+@app.get("/jobs")
+def get_jobs(
+    job_title: str = Query(...),
+    location: str = Query(...),
+    country: Optional[str] = Query(None),
+    companies: Optional[List[str]] = Query(None),
+    sites: Optional[List[str]] = Query(None),
+    limit: int = Query(20, le=100),
+    posted_after: Optional[date] = Query(None),
+    remote: Optional[bool] = Query(None),
 ):
-    file_bytes = await resume.read()
-    resume_text = extract_text_from_pdf(file_bytes)
-    print(f"📄 Resume text length: {len(resume_text)}")
+    selected_sites = sites or SUPPORTED_SITES
 
-    if not resume_text:
-        return {"error": "Could not extract text from the PDF."}
+    invalid = set(selected_sites) - set(SUPPORTED_SITES)
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid sites: {', '.join(invalid)}"
+        )
 
-    df = scrape_jobs(
-        site_name=["indeed", "linkedin"],
-        search_term=job_role,
+    # 1. Scrape the jobs
+    jobs = fetch_jobs(
+        job_title=job_title,
         location=location,
-        results_wanted=20,
-        country_indeed=location.strip().title(),
+        country=country,
+        companies=companies,
+        sites=selected_sites,
+        limit=limit,
+        posted_after=posted_after,
+        remote=remote,
     )
 
-    print(f"📦 Jobs fetched: {len(df)}")
+    print(f"📥 Jobs fetched: {len(jobs)}")
 
-    if df.empty:
-        df = scrape_jobs(
-            site_name=["linkedin"],
-            search_term=job_role,
-            location=location,
-            results_wanted=20,
-        )
-        print(f"📦 Fallback LinkedIn jobs: {len(df)}")
+    # 2. Save to database
+    saved_count = save_jobs_to_db(jobs)
 
-    if df.empty:
-        return {"error": "No jobs found for the given role and location."}
+    print(f"📦 Jobs saved to DB: {saved_count}")
 
-    df = df.map(lambda x: x.isoformat() if hasattr(x, "isoformat") else x)
-    jobs = df.fillna("").to_dict(orient="records")
-
-    for j in jobs[:3]:
-        print(f"  - {j.get('title')} | desc length: {len(j.get('description', ''))}")
-
-    results = await compare_resume_to_jobs(resume_text, jobs)
-    print(f"✅ Results count: {len(results)}")
-
-    # Generate overall summary
-    good_matches = [r for r in results if r.get("is_good_match")]
-    avg_score = round(sum(r["match_score"] for r in results) / len(results)) if results else 0
-    all_missing = []
-    for r in results:
-        all_missing.extend(r.get("missing_skills", []))
-    top_missing = sorted(set(all_missing), key=lambda x: all_missing.count(x), reverse=True)[:5]
-
-    overall_summary = {
-        "average_match_score": avg_score,
-        "good_matches_count": len(good_matches),
-        "top_missing_skills": top_missing,
-        "overall_advice": f"Your resume scored an average of {avg_score}% across {len(results)} jobs. "
-                          f"The most commonly missing skills are: {', '.join(top_missing)}. "
-                          f"Adding these to your resume will significantly improve your match rate."
-    }
-
+    # 3. Return to frontend
     return {
-        "job_role": job_role,
-        "location": location,
-        "total_jobs_checked": len(jobs),
-        "overall_summary": overall_summary,
-        "results": results,
+        "sources": selected_sites,
+        "count": len(jobs),
+        "saved": saved_count,
+        "jobs": jobs,
     }
 
-@app.get("/")
-def root():
-    return {"message": "Resume Matcher API is running. POST to /match"}
+
+# ==========================================
+# PHASE 2: MATCH RESUME TO A SINGLE JOB
+# ==========================================
+@app.post("/match_single_job")
+async def match_single_job(
+    resume: UploadFile = File(...),
+    job_title: str = Form(...),
+    company: str = Form(...),
+    description: str = Form(...)
+):
+    # 1. Extract text from the uploaded PDF
+    resume_text = ""
+    try:
+        with pdfplumber.open(resume.file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    resume_text += extracted + "\n"
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Could not read PDF file.")
+
+    # 2. Format the single job into the list structure your matcher expects
+    single_job_list = [{
+        "title": job_title,
+        "company": company,
+        "description": description
+    }]
+
+    # 3. Run your existing matcher function
+    match_results = await compare_resume_to_jobs(resume_text, single_job_list)
+
+    # 4. Return the result back to the frontend
+    if match_results:
+        return match_results[0]
+    
+    return {"error": "Could not generate match."}

@@ -14,10 +14,20 @@ SUPPORTED_SITES = [
 
 app = FastAPI(title="JobSpy API", version="1.0")
 
+# --- ADDED THIS BLOCK START ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/jobs")
 def get_jobs(
     job_title: str = Query(...),
     location: str = Query(...),
+    country: Optional[str] = Query(None),
     companies: Optional[List[str]] = Query(None),
     sites: Optional[List[str]] = Query(None),
     limit: int = Query(20, le=100),
@@ -36,6 +46,7 @@ def get_jobs(
     jobs = fetch_jobs(
         job_title=job_title,
         location=location,
+        country=country,
         companies=companies,
         sites=selected_sites,
         limit=limit,
